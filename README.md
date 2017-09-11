@@ -106,3 +106,35 @@ node ./src/index.js
 访问 http://localhost:3000/graphiql 。
 
 ![](imgs/2017-09-11-12-23-32.png)
+
+## 2. 变更
+
+- 在`src/schema/index.js`中添加类型定义。
+
+```
+  type Mutation {
+    createLink(url: String!, description: String!): Link
+  }
+```
+
+这里定义了一个名为`createLink`的变更，它接收2个字符串作为参数，同时返回一个`Link`类型的对象。
+
+- 在`src/schema/resolovers.js`中添加求解方式。
+
+```javascript
+  Mutation: {
+    createLink: (_, data) => {
+      const newLink = Object.assign({ id: links.length + 1 }, data);
+      links.push(newLink);
+      return newLink;
+    },
+  },
+```
+
+这里创建一个新对象并添加到`links`数组里。`data`参数是一个对象，包含了用于查询的参数（在本例中有`url`和`description`）。
+
+- 测试服务器
+
+![](imgs/2017-09-11-12-57-56.png)
+
+![](imgs/2017-09-11-12-59-53.png)
