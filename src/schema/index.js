@@ -1,5 +1,5 @@
 const { makeExecutableSchema } = require('graphql-tools');
-const resolvers = require('./resolovers')
+const resolvers = require('./resolovers');
 
 const typeDefs = `
   type Link {

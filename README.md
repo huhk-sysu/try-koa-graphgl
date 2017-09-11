@@ -138,3 +138,77 @@ node ./src/index.js
 ![](imgs/2017-09-11-12-57-56.png)
 
 ![](imgs/2017-09-11-12-59-53.png)
+
+## 3. 连接数据库
+
+- 开启mongoDB服务器。
+
+- 在`src/mongo-connector.js`中定义`Link`的模型并导出，同时进行连接mongoDB服务器的操作。
+
+```javascript
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+const MONGO_URL = 'mongodb://localhost:27017/hackernews' 
+
+const linkSchema = new Schema({
+  url: String,
+  description: String
+})
+
+mongoose.Promise = global.Promise;
+mongoose.connect(MONGO_URL, { useMongoClient: true });
+
+module.exports = mongoose.model('Links', linkSchema)
+```
+
+- 在`src/index.js`里获取上面文件导出的内容，并包装在`context`里。这样在求解方法的第三个参数中可以获取它，从而进行数据库操作。
+
+```javascript
+const Links = require('./mongo-connector');
+router.post(
+  '/graphql',
+  koaBody(),
+  graphqlKoa({
+    context: { Links },
+    schema,
+  })
+);
+router.get(
+  '/graphql',
+  graphqlKoa({
+    context: { Links },
+    schema,
+  })
+);
+```
+
+- 把`src/schema/resolovers.js`里原来硬编码的内容删掉，因为已经使用数据库了。同时修改其内容，使用数据库的操作方式。
+
+```javascript
+module.exports = {
+  Query: {
+    allLinks: async (root, data, { Links }) => {
+      return await Links.find();
+    },
+  },
+  Mutation: {
+    createLink: async (root, data, { Links }) => {
+      return await Links.create(data);
+    },
+  }
+};
+```
+
+值得一提的是，`mongoose`里面会自动给你添加一个`_id`属性，而不是`id`。但同时它也提供一个`id`的`setter`，使得你直接访问`id`即可获得`_id`的内容。因此这里不再需要编写`Links.id`的求解方法。
+
+另外，这里直接假定数据库操作成功，而暂时没有处理异步出错的情况，仅作为演示使用。
+
+- 测试服务器
+
+![](imgs/2017-09-11-14-18-04.png)
+
+![](imgs/2017-09-11-14-18-51.png)
+
+查看数据库内部：
+
+![](imgs/2017-09-11-14-19-58.png)
