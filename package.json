@@ -1,0 +1,21 @@
+{
+  "name": "try-koa-graphgl",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node ./src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "apollo-server-koa": "^1.1.2",
+    "graphql": "^0.11.3",
+    "graphql-tools": "^1.2.2",
+    "koa": "^2.3.0",
+    "koa-bodyparser": "^4.2.0",
+    "koa-router": "^7.2.1",
+    "mongoose": "^4.11.11"
+  }
+}
