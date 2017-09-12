@@ -25,7 +25,8 @@ router.get(
   '/graphiql',
   graphiqlKoa({
     endpointURL: '/graphql',
-    passHeader: `'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5YjdiYjkwZDNlMDA5ZTI1OWFiNmI4NCIsImlhdCI6MTUwNTIxMzQzOH0.TxBaDwriYDkiD9vskLiVYJWHlkE6frg-11Qtvval6XE'`,
+    // passHeader: `'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5YjdiYjkwZDNlMDA5ZTI1OWFiNmI4NCIsImlhdCI6MTUwNTIxMzQzOH0.TxBaDwriYDkiD9vskLiVYJWHlkE6frg-11Qtvval6XE'`,
+    passHeader: `'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5YjdjZjM2OTc5MDczNjVmOGQ5NWQ3NiIsImlhdCI6MTUwNTIxODYxMn0.PAemsJ9RqiKwp-wJVLLr48VFNJkUuwh6v9HeD9zup6U'`,
   })
 );
 

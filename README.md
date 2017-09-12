@@ -406,3 +406,99 @@ router.get(
 新建链接-未授权
 
 ![](imgs/2017-09-12-18-58-14.png)
+
+## 5. 更多更改
+
+- 在`src/schema/index.js`里新增一个方法`createVote`, 新增一个类型`Vote`，并且修改`Link`和`User`的定义。
+
+```
+type Link {
+  id: ID!
+  url: String!
+  description: String!
+  postedBy: User!
+  votes: [Vote!]!
+}
+
+type User {
+  id: ID!
+  name: String!
+  password: String!
+  votes: [Vote!]!
+}
+
+type Mutation {
+  createLink(url: String!, description: String!): Link
+  createVote(linkId: ID!): Vote
+  createUser(name: String!, authProvider: AuthProviderSignupData!): User
+  signinUser(email: AUTH_PROVIDER_EMAIL): SigninPayload!
+}
+```
+
+- 在`src/mongo-connector.js`里补充`Vote`的模型。
+
+```javascript
+const VoteSchema = new Schema({
+  userId: Schema.Types.ObjectId,
+  linkId: Schema.Types.ObjectId,
+});
+
+module.exports = {
+  Links: mongoose.model('Links', linkSchema),
+  Users: mongoose.model('Users', userSchema),
+  Votes: mongoose.model('Votes', VoteSchema),
+};
+```
+
+注意这里我们只储存了id，到时候根据id去数据库拿出具体的对象。
+
+- 在`src/schema/resolovers.js`里编写`createVote`的求解方法，以及`Vote.user`和`Vote.link`的求解，还有`Link.votes`和`User.votes`的求解。
+
+```javascript
+module.exports = {
+  Link: {
+    votes: async ({ _id }, data, { mongo: { Votes } }) => {
+      return await Votes.find({ linkId: _id });
+    },
+  },
+  User: {
+    votes: async ({ _id }, data, { mongo: { Votes } }) => {
+      return await Votes.find({ userId: _id });
+    },
+  },
+  Vote: {
+    user: async ({ userId }, data, { mongo: { Users } }) => {
+      return await Users.findOne({ _id: userId });
+    },
+    link: async ({ linkId }, data, { mongo: { Links } }) => {
+      return await Links.findOne({ _id: linkId });
+    },
+  },
+  Mutation: {
+    createVote: async (root, data, { mongo: { Votes }, user }) => {
+      if (!user) throw new Error('Unauthorized');
+      const newVote = Object.assign({ userId: user._id }, data);
+      return await Votes.create(newVote);
+    }
+  }
+};
+```
+
+从上面的求解方法可以看出，其实就是根据id去查对应的对象而已。
+
+- 测试服务器
+
+新建投票
+
+![](imgs/2017-09-12-20-10-16.png)
+
+
+下面的例子中，`huhk`用户为百度和网易链接各投一票，`xiaoming`用户为百度链接投了一票。
+
+查看为某个`Link`投票的`User`：
+
+![](imgs/2017-09-12-20-23-56.png)
+
+
+查看某个`User`投过的`Link`（还有一部分响应未截图）：
+![](imgs/2017-09-12-20-25-15.png)

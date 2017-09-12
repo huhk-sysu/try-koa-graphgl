@@ -6,6 +6,22 @@ module.exports = {
     postedBy: async ({ postedById }, data, { mongo: { Users } }) => {
       return await Users.findOne({ _id: postedById });
     },
+    votes: async ({ _id }, data, { mongo: { Votes } }) => {
+      return await Votes.find({ linkId: _id });
+    },
+  },
+  User: {
+    votes: async ({ _id }, data, { mongo: { Votes } }) => {
+      return await Votes.find({ userId: _id });
+    },
+  },
+  Vote: {
+    user: async ({ userId }, data, { mongo: { Users } }) => {
+      return await Users.findOne({ _id: userId });
+    },
+    link: async ({ linkId }, data, { mongo: { Links } }) => {
+      return await Links.findOne({ _id: linkId });
+    },
   },
   Query: {
     allLinks: async (root, data, { mongo: { Links } }) => {
@@ -14,13 +30,17 @@ module.exports = {
   },
   Mutation: {
     createLink: async (root, data, { mongo: { Links }, user }) => {
-      if (!user)
-        throw new Error('Unauthorized');
+      if (!user) throw new Error('Unauthorized');
       const newLink = Object.assign({ postedById: user._id }, data);
       return await Links.create(newLink);
     },
     createUser: async (root, data, { mongo: { Users } }) => {
       return await Users.create(data);
+    },
+    createVote: async (root, data, { mongo: { Votes }, user }) => {
+      if (!user) throw new Error('Unauthorized');
+      const newVote = Object.assign({ userId: user._id }, data);
+      return await Votes.create(newVote);
     },
     signinUser: async (root, data, { mongo: { Users } }) => {
       const user = await Users.findOne({ name: data.name });
