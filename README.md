@@ -212,3 +212,197 @@ module.exports = {
 查看数据库内部：
 
 ![](imgs/2017-09-11-14-19-58.png)
+
+## 4. 授权
+
+- 安装需要用到的`jsonwebtoken`
+
+```bash
+yarn add jsonwebtoken
+```
+
+- 新建`src/config/index.js`，导出配置。内容暂时只有一个，就是服务器的`SECRET`。
+
+```javascript
+module.exports = {
+  SECRET: "secret"
+}
+```
+
+- 在`src/schema/index.js`里添加`User`的类型定义
+
+```
+  type User {
+    id: ID!
+    name: String!
+    password: String!
+  }
+
+  type SigninPayload {
+    token: String
+    user: User
+  }
+
+  type Mutation {
+    createUser(name: String!, password: String!): User
+    signinUser(name: String!, password: String!): SigninPayload!
+  }
+```
+
+上面除了添加了新建用户的方法，还添加了注册函数的方法，它们都接收`name`和`password`两个参数，前者返回一个`User`对象，后者返回一个`SigninPayload`对象，内含token和user。
+
+- 在`src/mongo-connector.js`里添加`mongoose`的`User`定义。
+
+```javascript
+const userSchema = new Schema({
+  name: String,
+  password: String,
+});
+
+module.exports = {
+  Links: mongoose.model('Links', linkSchema),
+  Users: mongoose.model('Users', userSchema),
+};
+```
+
+- 在`src/schema/resolovers.js`里添加求解方法。
+
+```javascript
+const jwt = require('jsonwebtoken');
+const { SECRET } = require('../config');
+
+Mutation: {
+  createUser: async (root, data, { mongo: { Users } }) => {
+    return await Users.create(data);
+  }
+  SigninUser: async (root, data, { mongo: { Users } }) => {
+    const user = await Users.findOne({ name: data.name });
+    if (data.password === user.password) {
+      return {
+        token: jwt.sign({ id: user.id }, SECRET),
+        user,
+      };
+    }
+  },
+}
+```
+
+这里建立用户仅供演示，并没有增加什么验证方式（例如，可能出现用户名相同的情况，导致后续出错，但这里不考虑）。
+
+在用户登入过程中，使用`jsonwebtoken`库，用预定义的`SECRET`把用户的`id`生成一串`token`作为响应。
+
+在以后的请求中，应当带上这样的请求头：
+
+```json
+  "Authorization": "Bearer xxxx"
+```
+
+其中xxxx就是刚刚得到的`token`，这是用来验证用户身份的。具体可以参考[jsonwebtoken](http://jwt.io/introduction/)。
+
+- 新增`src/authentication.js`，他会检验传入的请求的`header`里是否有我们希望的`token`，并尝试解码出用户的`id`。注意这里如果检验失败，返回值就是`undefined`了。
+
+```javascript
+const jwt = require('jsonwebtoken');
+const { SECRET } = require('./config');
+
+module.exports.authenticate = async (ctx, Users) => {
+  if (!ctx.header || !ctx.header.authorization) {
+    return;
+  }
+
+  const parts = ctx.header.authorization.split(' ');
+
+  if (parts.length === 2) {
+    const scheme = parts[0];
+    const token = parts[1];
+
+    if (/^Bearer$/i.test(scheme)) {
+      const { id } = jwt.verify(token, SECRET);
+      return await Users.findOne({ _id: id });
+    }
+  }
+};
+```
+
+- 略微修改`src/index.js`，以适应`src/mongo-connector.js`的`exports`的改动。同时引入上面的授权手段。
+
+```javascript
+const { authenticate } = require('./authentication');
+const mongo = require('./mongo-connector');
+
+const buildOptions = async ctx => {
+  const user = await authenticate(ctx, mongo.Users);
+  return {
+    context: { mongo, user },
+    schema,
+    debug: false,
+  };
+};
+
+router.post('/graphql', koaBody(), graphqlKoa(buildOptions));
+```
+
+这里用一个函数`buildOptions`取代了原来固定的对象，这样可以根据`ctx`的情况来动态生成`context`。另外这里`debug`的值的含义是，当有错误被抛出时，是否在控制台打印错误信息及其调用栈。默认值是`true`，方便调试。
+
+- 回到`src/schema/index.js`，修改`Link`的定义，这样可以记录这个`Link`是谁发布的。
+
+```
+type Link {
+    id: ID!
+    url: String!
+    description: String!
+    postedBy: User
+}
+```
+
+- 回到`src/schema/resolovers.js`，更新求解方法。这里检测如果`context`里没有`user`，就抛出错误，否则就正常新建链接。另外要编写`Link.postedBy`的求解方法，也就是根据`id`去数据库里找出对应的用户就好了。
+
+```javascript
+Mutation: {
+  createLink: async (root, data, { mongo: { Links }, user }) => {
+    if (!user)
+      throw new Error('Unauthorized');
+    const newLink = Object.assign({ postedById: user._id }, data);
+    return await Links.create(newLink);
+  }
+}
+Link: {
+  postedBy: async ({ postedById }, data, { mongo: { Users } }) => {
+    return await Users.findOne({ _id: postedById });
+  }
+}
+```
+
+- 为了能使用`GraphiQL`正常测试，修改`src/index.js`。下面的xxxx要替换成计算的`token`。
+
+```javascript
+router.get(
+  '/graphiql',
+  graphiqlKoa({
+    endpointURL: '/graphql',
+    passHeader: `'Authorization': 'Bearer xxxx'`,
+  })
+);
+```
+
+- 测试服务器
+
+新建用户
+
+![](imgs/2017-09-12-18-49-11.png)
+
+用户登入
+
+![](imgs/2017-09-12-18-51-04.png)
+
+新建链接-已授权
+
+![](imgs/2017-09-12-18-54-50.png)
+
+全部链接
+
+![](imgs/2017-09-12-18-55-44.png)
+
+新建链接-未授权
+
+![](imgs/2017-09-12-18-58-14.png)
