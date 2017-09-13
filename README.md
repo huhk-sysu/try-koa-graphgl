@@ -721,3 +721,95 @@ const buildOptions = async ctx => {
 这是url错误。
 
 ![](imgs/2017-09-13-16-13-24.png)
+
+## 9. 订阅
+
+- 由于奇怪的错误（？？？），需要降级安装`graphql`，另外还要安装这次用到的`graphql-subscriptions`和`subscriptions-transport-ws`
+
+```bash
+yarn add graphql@0.10.5 graphql-subscriptions subscriptions-transport-ws
+```
+
+- 在`src/schema/index.js`里新增定义。
+
+```
+type Subscription {
+  LinkCreated: Link!
+}
+```
+
+- 在`src/schema/resolovers.js`里编写求解方法。
+
+```javascript
+const { PubSub } = require('graphql-subscriptions');
+const pubsub = new PubSub();
+
+Mutation: {
+  createLink: async (root, data, { mongo: { Links }, user }) => {
+    if (!user) {
+      throw new authenticationError(
+        'User authentication error: please bear your token in header.',
+        'You will get the token after login.'
+      );
+    }
+    assertValidLink(data);
+    const newLink = Object.assign({ postedById: user._id }, data);
+    const response = await Links.create(newLink);
+    pubsub.publish('LinkCreated', { LinkCreated: response });
+    return response;
+  },
+},
+Subscription: {
+  LinkCreated: {
+    subscribe: () => pubsub.asyncIterator('LinkCreated'),
+  },
+},
+```
+
+这里`Subscription.LinkCreated`是一个对象，有一个键为`subscribe`，键值为一个返回`AsyncIterator`的函数，利用`pubsub`的`asyncIterator`即可。
+
+之后，每当有新的`Link`创建，就应当触发订阅，因此在创建`Link`后`publish`一下。
+
+- 为了处理订阅的请求，需要一个`WebSocket`链接。改写`src/index.js`。
+
+```javascript
+const { execute, subscribe } = require('graphql');
+const { createServer } = require('http');
+const { SubscriptionServer } = require('subscriptions-transport-ws');
+
+router.get(
+  '/graphiql',
+  graphiqlKoa({
+    endpointURL: '/graphql',
+    passHeader: `'Authorization': 'Bearer xxxx'`,
+    subscriptionsEndpoint: `ws://localhost:${PORT}/subscriptions`,
+  })
+);
+
+const server = createServer(app.callback());
+server.listen(PORT, () => {
+  SubscriptionServer.create(
+    { execute, subscribe, schema },
+    { server, path: '/subscriptions' }
+  );
+  console.log(
+    `Server is running. Test server on http://localhost:${PORT}/graphiql .`
+  );
+});
+```
+
+一方面是给`graphiqlKoa`多加一个`subscriptionsEndpoint`属性，方便调试。另外一方面是给`listener`函数多传一个中间件`SubscriptionServer`。
+
+- 测试服务器。分2个tab打开测试页面。
+
+第一个tab里订阅：
+
+![](imgs/2017-09-14-01-06-59.png)
+
+第二个tab里创建：
+
+![](imgs/2017-09-14-01-07-32.png)
+
+返回第一个tab：
+
+![](imgs/2017-09-14-01-07-51.png)

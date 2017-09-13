@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const { URL } = require('url');
 const { SECRET } = require('../config');
+const { PubSub } = require('graphql-subscriptions');
+const pubsub = new PubSub();
 
 class ValidationError extends Error {
   constructor(message, field) {
@@ -61,7 +63,9 @@ module.exports = {
       }
       assertValidLink(data);
       const newLink = Object.assign({ postedById: user._id }, data);
-      return await Links.create(newLink);
+      const response = await Links.create(newLink);
+      pubsub.publish('LinkCreated', { LinkCreated: response });
+      return response;
     },
     createUser: async (root, data, { mongo: { Users } }) => {
       return await Users.create(data);
@@ -84,6 +88,11 @@ module.exports = {
           user,
         };
       }
+    },
+  },
+  Subscription: {
+    LinkCreated: {
+      subscribe: () => pubsub.asyncIterator('LinkCreated'),
     },
   },
 };

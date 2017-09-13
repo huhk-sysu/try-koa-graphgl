@@ -2,6 +2,9 @@ const koa = require('koa');
 const koaRouter = require('koa-router');
 const koaBody = require('koa-bodyparser');
 const { graphqlKoa, graphiqlKoa } = require('apollo-server-koa');
+const { execute, subscribe } = require('graphql');
+const { createServer } = require('http');
+const { SubscriptionServer } = require('subscriptions-transport-ws');
 const { authenticate } = require('./authentication');
 const schema = require('./schema');
 const mongo = require('./mongo-connector');
@@ -18,7 +21,7 @@ const buildOptions = async ctx => {
     context: { mongo, user, dataloaders: buildDataloaders(mongo) },
     schema,
     formatError,
-    debug: false,
+    debug: true,
   };
 };
 
@@ -30,12 +33,19 @@ router.get(
     endpointURL: '/graphql',
     // passHeader: `'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5YjdiYjkwZDNlMDA5ZTI1OWFiNmI4NCIsImlhdCI6MTUwNTIxMzQzOH0.TxBaDwriYDkiD9vskLiVYJWHlkE6frg-11Qtvval6XE'`,
     passHeader: `'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5YjdjZjM2OTc5MDczNjVmOGQ5NWQ3NiIsImlhdCI6MTUwNTIxODYxMn0.PAemsJ9RqiKwp-wJVLLr48VFNJkUuwh6v9HeD9zup6U'`,
+    subscriptionsEndpoint: `ws://localhost:${PORT}/subscriptions`,
   })
 );
 
 app.use(router.routes());
 app.use(router.allowedMethods());
-app.listen(PORT, () => {
+
+const server = createServer(app.callback());
+server.listen(PORT, () => {
+  SubscriptionServer.create(
+    { execute, subscribe, schema },
+    { server, path: '/subscriptions' }
+  );
   console.log(
     `Server is running. Test server on http://localhost:${PORT}/graphiql .`
   );

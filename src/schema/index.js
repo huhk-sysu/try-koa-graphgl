@@ -38,6 +38,11 @@ const typeDefs = `
     createVote(linkId: ID!): Vote
     signinUser(name: String!, password: String!): SigninPayload!
   }
+
+  type Subscription {
+    LinkCreated: Link!
+  }
 `;
 
 module.exports = makeExecutableSchema({ typeDefs, resolvers });
+// 
