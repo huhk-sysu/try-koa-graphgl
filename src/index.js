@@ -5,15 +5,16 @@ const { graphqlKoa, graphiqlKoa } = require('apollo-server-koa');
 const { authenticate } = require('./authentication');
 const schema = require('./schema');
 const mongo = require('./mongo-connector');
+const buildDataloaders = require('./dataloader');
 
 const app = new koa();
 const router = new koaRouter();
 const PORT = 3000;
 
 const buildOptions = async ctx => {
-  const user = await authenticate(ctx, mongo.Users);
+  const user = await authenticate(ctx, buildDataloaders(mongo));
   return {
-    context: { mongo, user },
+    context: { mongo, user, dataloaders: buildDataloaders(mongo) },
     schema,
     debug: false,
   };

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const Logger = mongoose.mongo.Logger;
 const Schema = mongoose.Schema;
 const MONGO_URL = 'mongodb://localhost:27017/hackernews';
 
@@ -20,6 +21,13 @@ const VoteSchema = new Schema({
 
 mongoose.Promise = global.Promise;
 mongoose.connect(MONGO_URL, { useMongoClient: true });
+
+let logCount = 0;
+Logger.setCurrentLogger((msg, state) => {
+  console.log(`MONGO DB REQUEST No. ${++logCount}`);
+});
+Logger.setLevel('debug');
+Logger.filter('class', ['Cursor']);
 
 module.exports = {
   Links: mongoose.model('Links', linkSchema),

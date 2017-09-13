@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { SECRET } = require('./config');
 
-module.exports.authenticate = async (ctx, Users) => {
+module.exports.authenticate = async (ctx, {userLoader}) => {
   if (!ctx.header || !ctx.header.authorization) {
     return;
   }
@@ -14,7 +14,7 @@ module.exports.authenticate = async (ctx, Users) => {
 
     if (/^Bearer$/i.test(scheme)) {
       const { id } = jwt.verify(token, SECRET);
-      return await Users.findOne({ _id: id });
+      return await userLoader.load(id);
     }
   }
 };

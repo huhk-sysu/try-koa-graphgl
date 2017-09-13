@@ -502,3 +502,125 @@ module.exports = {
 
 查看某个`User`投过的`Link`（还有一部分响应未截图）：
 ![](imgs/2017-09-12-20-25-15.png)
+
+## 6. 使用`dataloader`
+
+- 首先，在`src/mongo-connector.js`里，使用`mongodb`自带的`Logger`来记录数据库查询的次数。
+
+```javascript
+const Logger = mongoose.mongo.Logger;
+
+let logCount = 0;
+Logger.setCurrentLogger((msg, state) => {
+  console.log(`MONGO DB REQUEST No. ${++logCount}`);
+});
+Logger.setLevel('debug');
+Logger.filter('class', ['Cursor']);
+```
+
+- 启动服务器进行查询
+
+```
+{
+  allLinks {
+    url
+    votes {
+      user {
+        name
+        votes {
+          link {
+            url
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+查看结果，一共查询了15次。
+
+![](imgs/2017-09-13-15-21-12.png)
+
+- 安装`dataloader`。这是一个用于简化数据库读写的库。它有可以把在一段时间内进行的若干次查询会合并成一次查询，同时还可以缓存已有结果，以此减少访问数据库的次数，提高效率。具体请看[官方文档](https://www.npmjs.com/package/dataloader)。
+
+```bash
+yarn add dataloader
+```
+
+- 新建文件`src/dataloader.js`。
+
+```javascript
+const DataLoader = require('dataloader');
+
+async function batch(Model, keys) {
+  return result = await Model.find({ _id: { $in: keys } });
+}
+
+const cacheKeyFn = key => key.toString();
+
+module.exports = ({ Users, Links, Votes }) => ({
+  userLoader: new DataLoader(keys => batch(Users, keys), { cacheKeyFn }),
+  linkLoader: new DataLoader(keys => batch(Links, keys), { cacheKeyFn }),
+  voteLoader: new DataLoader(keys => batch(Votes, keys), { cacheKeyFn }),
+});
+```
+
+`dataloader`的构造函数里，第一个参数是一个函数，要求他能接收一个带有一系列`key`的数组，并返回一个`promise`，内容为与`key`一一对应的数据内容。
+
+具体而言，例如一小段时间内，我分别对id为1,2,3的用户进行3次查询，则可以合并为一次对id在[1,2,3]内的用户的查询，这样就可以节省资源了。
+
+而`cacheKeyFn`是一个映射函数，`mongoose`返回的`id`们其实是对象而不是字符串，这样在作相等比较的时候就会失败，因此要先转换为字符串。
+
+最后，这个函数每次都会新建一个`dataloader`。这是因为希望它只在一次查询中生效。
+
+- 修改`src/index.js`，把`dataloader`放进`context`里。
+
+```javascript
+const buildDataloaders = require('./dataloader');
+
+const buildOptions = async ctx => {
+  const user = await authenticate(ctx, buildDataloaders(mongo));
+  return {
+    context: { mongo, user, dataloaders: buildDataloaders(mongo) },
+    schema,
+    debug: false,
+  };
+};
+```
+
+- 修改`src/schema/resolovers.js`和`src/authentication.js`，使用`dataloader`获取数据。
+
+```javascript
+module.exports.authenticate = async (ctx, {userLoader}) => {
+    // ......
+
+    if (/^Bearer$/i.test(scheme)) {
+      const { id } = jwt.verify(token, SECRET);
+      return await userLoader.load(id);
+    }
+  }
+};
+```
+
+```javascript
+Link: {
+  postedBy: async ({ postedById }, data, { dataloaders: { userLoader } }) => {
+    return await userLoader.load(postedById);
+  },
+},
+Vote: {
+  user: async ({ userId }, data, { dataloaders: { userLoader } }) => {
+    return await userLoader.load(userId);
+  },
+  link: async ({ linkId }, data, { dataloaders: { linkLoader } }) => {
+    return await linkLoader.load(linkId);
+  },
+},
+```
+
+- 测试服务器，再次使用刚才相同的内容进行查询。
+
+![](imgs/2017-09-13-15-30-10.png)
+
+可见查询次数从15次减少到了9次。
