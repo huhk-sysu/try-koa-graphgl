@@ -624,3 +624,100 @@ Vote: {
 ![](imgs/2017-09-13-15-30-10.png)
 
 可见查询次数从15次减少到了9次。
+
+## 7. 错误处理
+
+- 其实`GraphQL`自带了基础的错误处理，如图。
+
+![](imgs/2017-09-13-15-41-17.png)
+
+但我们可以在这个基础上补充一些错误。
+
+- 在`src/schema/resolovers.js`里新定义2个`Error`与一个检测url是否合法的方法：
+
+```javascript
+const { URL } = require('url');
+
+class ValidationError extends Error {
+  constructor(message, field) {
+    super(message);
+    this.field = field;
+  }
+}
+
+class authenticationError extends Error {
+  constructor(message, hint) {
+    super(message);
+    this.hint = hint;
+  }
+}
+
+function assertValidLink({ url }) {
+  try {
+    new URL(url);
+  } catch (error) {
+    throw new ValidationError('Link validation error: invalid url.', 'url');
+  }
+}
+```
+
+- 改写`createLink`方法。
+
+```javascript
+Mutation: {
+  createLink: async (root, data, { mongo: { Links }, user }) => {
+    if (!user) {
+      throw new authenticationError(
+        'User authentication error: please bear your token in header.',
+        'You will get the token after login.'
+      );
+    }
+    assertValidLink(data);
+    const newLink = Object.assign({ postedById: user._id }, data);
+    return await Links.create(newLink);
+  },
+}
+```
+
+- 新建`src/formatError.js`并在`src/index.js`里引用它。
+
+```javascript
+const { formatError } = require('graphql');
+
+module.exports = error => {
+  const data = formatError(error);
+  const { originalError } = error;
+  if (originalError) {
+    delete data.locations;
+    data.field = originalError.field;
+    data.hint =  originalError.hint;
+  }
+  return data;
+};
+```
+
+这里使用`formatError`后得到的对象就是之前响应中`errors`的内容了。然后我们检查一下它是是否是派生的`Error`，如果是我们刚才定义的url错误或者认证错误之一，就把没什么用的`error.locations`给删掉，然后补充上我们自定义的内容。这样新的响应就能显示我们希望的内容了。
+
+```javascript
+const formatError = require('./formatError');
+
+const buildOptions = async ctx => {
+  const user = await authenticate(ctx, buildDataloaders(mongo));
+  return {
+    context: { mongo, user, dataloaders: buildDataloaders(mongo) },
+    schema,
+    formatError,
+    debug: false,
+  };
+};
+```
+
+- 测试服务器
+
+这是认证错误。
+
+![](imgs/2017-09-13-16-12-55.png)
+
+这是url错误。
+
+![](imgs/2017-09-13-16-13-24.png)

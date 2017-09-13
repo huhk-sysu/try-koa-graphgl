@@ -22,12 +22,12 @@ const VoteSchema = new Schema({
 mongoose.Promise = global.Promise;
 mongoose.connect(MONGO_URL, { useMongoClient: true });
 
-let logCount = 0;
-Logger.setCurrentLogger((msg, state) => {
-  console.log(`MONGO DB REQUEST No. ${++logCount}`);
-});
-Logger.setLevel('debug');
-Logger.filter('class', ['Cursor']);
+// let logCount = 0;
+// Logger.setCurrentLogger((msg, state) => {
+//   console.log(`MONGO DB REQUEST No. ${++logCount}`);
+// });
+// Logger.setLevel('debug');
+// Logger.filter('class', ['Cursor']);
 
 module.exports = {
   Links: mongoose.model('Links', linkSchema),

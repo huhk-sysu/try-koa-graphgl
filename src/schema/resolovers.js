@@ -1,5 +1,28 @@
 const jwt = require('jsonwebtoken');
+const { URL } = require('url');
 const { SECRET } = require('../config');
+
+class ValidationError extends Error {
+  constructor(message, field) {
+    super(message);
+    this.field = field;
+  }
+}
+
+class authenticationError extends Error {
+  constructor(message, hint) {
+    super(message);
+    this.hint = hint;
+  }
+}
+
+function assertValidLink({ url }) {
+  try {
+    new URL(url);
+  } catch (error) {
+    throw new ValidationError('Link validation error: invalid url.', 'url');
+  }
+}
 
 module.exports = {
   Link: {
@@ -30,7 +53,13 @@ module.exports = {
   },
   Mutation: {
     createLink: async (root, data, { mongo: { Links }, user }) => {
-      if (!user) throw new Error('Unauthorized');
+      if (!user) {
+        throw new authenticationError(
+          'User authentication error: please bear your token in header.',
+          'You will get the token after login.'
+        );
+      }
+      assertValidLink(data);
       const newLink = Object.assign({ postedById: user._id }, data);
       return await Links.create(newLink);
     },
@@ -38,7 +67,12 @@ module.exports = {
       return await Users.create(data);
     },
     createVote: async (root, data, { mongo: { Votes }, user }) => {
-      if (!user) throw new Error('Unauthorized');
+      if (!user) {
+        throw new authenticationError(
+          'User authentication error: please bear your token in header.',
+          'You will get the token after login.'
+        );
+      }
       const newVote = Object.assign({ userId: user._id }, data);
       return await Votes.create(newVote);
     },

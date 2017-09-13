@@ -6,6 +6,7 @@ const { authenticate } = require('./authentication');
 const schema = require('./schema');
 const mongo = require('./mongo-connector');
 const buildDataloaders = require('./dataloader');
+const formatError = require('./formatError');
 
 const app = new koa();
 const router = new koaRouter();
@@ -16,6 +17,7 @@ const buildOptions = async ctx => {
   return {
     context: { mongo, user, dataloaders: buildDataloaders(mongo) },
     schema,
+    formatError,
     debug: false,
   };
 };
