@@ -1,15 +1,23 @@
 # 编写简单的GraphQL服务器
 
-[教程来源](https://www.howtographql.com)
+[教程来源](https://www.howtographql.com/graphql-js/1-getting-started/)
 
-[官方文档](http://graphql.org/learn/)
+[GraphQL官方文档](http://graphql.org/learn/)
+
+[koa相关](http://koajs.com/)
+
+[jsonwebtoken相关](http://jwt.io/introduction/)
+
+[apollo-server相关](http://dev.apollodata.com/tools/graphql-server/index.html)
+
+[dataloader相关](https://github.com/facebook/dataloader)
 
 ## 0. 准备工作
 
 - 安装相关依赖
 
 ```bash
-yarn add koa koa-bodyparser koa-router apollo-server-koa graphql-tools graphql mongoose
+yarn add koa koa-bodyparser koa-router apollo-server-koa graphql-tools graphql@0.10.5 mongoose jsonwebtoken graphql-subscriptions subscriptions-transport-ws dataloader
 ```
 
 ## 1. 查询
@@ -215,12 +223,6 @@ module.exports = {
 
 ## 4. 授权
 
-- 安装需要用到的`jsonwebtoken`
-
-```bash
-yarn add jsonwebtoken
-```
-
 - 新建`src/config/index.js`，导出配置。内容暂时只有一个，就是服务器的`SECRET`。
 
 ```javascript
@@ -297,7 +299,7 @@ Mutation: {
   "Authorization": "Bearer xxxx"
 ```
 
-其中xxxx就是刚刚得到的`token`，这是用来验证用户身份的。具体可以参考[jsonwebtoken](http://jwt.io/introduction/)。
+其中xxxx就是刚刚得到的`token`，这是用来验证用户身份的。
 
 - 新增`src/authentication.js`，他会检验传入的请求的`header`里是否有我们希望的`token`，并尝试解码出用户的`id`。注意这里如果检验失败，返回值就是`undefined`了。
 
@@ -542,11 +544,7 @@ Logger.filter('class', ['Cursor']);
 
 ![](imgs/2017-09-13-15-21-12.png)
 
-- 安装`dataloader`。这是一个用于简化数据库读写的库。它有可以把在一段时间内进行的若干次查询会合并成一次查询，同时还可以缓存已有结果，以此减少访问数据库的次数，提高效率。具体请看[官方文档](https://www.npmjs.com/package/dataloader)。
-
-```bash
-yarn add dataloader
-```
+- `dataloader`是一个用于简化数据库读写的库。它有可以把在一段时间内进行的若干次查询会合并成一次查询，同时还可以缓存已有结果，以此减少访问数据库的次数，提高效率。
 
 - 新建文件`src/dataloader.js`。
 
@@ -722,13 +720,11 @@ const buildOptions = async ctx => {
 
 ![](imgs/2017-09-13-16-13-24.png)
 
+## 8. ？？？
+
+由于数数错误被我跳过了……
+
 ## 9. 订阅
-
-- 由于奇怪的错误（？？？），需要降级安装`graphql`，另外还要安装这次用到的`graphql-subscriptions`和`subscriptions-transport-ws`
-
-```bash
-yarn add graphql@0.10.5 graphql-subscriptions subscriptions-transport-ws
-```
 
 - 在`src/schema/index.js`里新增定义。
 
