@@ -875,3 +875,62 @@ description匹配：
 共同匹配：
 
 ![](imgs/2017-09-14-16-00-35.png)
+
+## 11. 分页。
+
+- 希望能在筛选结果的基础上，添加跳过前N项以及选择前N项的功能，以此配合前端实现分页。在`src/schema/index.js`里改写定义。
+
+```
+type Query {
+  allLinks(filter: LinkFilter, skip: Int, first: Int): [Link!]!
+}
+```
+
+- 在`src/schema/resolovers.js`里略微修改求解方法。
+
+```javascript
+Query: {
+  allLinks: async (root, { filter, first, skip }, { mongo: { Links } }) => {
+    let query = {};
+    first = first || 0;
+    skip = skip || 0;
+    if (filter) {
+      let { url_contains, description_contains } = filter;
+      if (url_contains) {
+        query.url = { $regex: new RegExp(`${url_contains}`), $options: 'i' };
+      }
+      if (description_contains) {
+        query.description = {
+          $regex: new RegExp(`${description_contains}`),
+          $options: 'i',
+        };
+      }
+    }
+    return await Links.find(query).limit(first).skip(skip);
+  }
+}
+```
+
+- 测试服务器
+
+完整的链接：
+
+![](imgs/2017-09-14-16-36-51.png)
+
+测试skip：
+
+![](imgs/2017-09-14-16-37-58.png)
+
+测试first：
+
+![](imgs/2017-09-14-16-38-11.png)
+
+同时测试：
+
+![](imgs/2017-09-14-16-38-53.png)
+
+配合filter：
+
+![](imgs/2017-09-14-16-39-49.png)
+
+![](imgs/2017-09-14-16-39-35.png)

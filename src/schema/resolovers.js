@@ -49,8 +49,10 @@ module.exports = {
     },
   },
   Query: {
-    allLinks: async (root, { filter }, { mongo: { Links } }) => {
+    allLinks: async (root, { filter, first, skip }, { mongo: { Links } }) => {
       let query = {};
+      first = first || 0;
+      skip = skip || 0;
       if (filter) {
         let { url_contains, description_contains } = filter;
         if (url_contains) {
@@ -63,7 +65,7 @@ module.exports = {
           };
         }
       }
-      return await Links.find(query);
+      return await Links.find(query).limit(first).skip(skip);
     },
   },
   Mutation: {
