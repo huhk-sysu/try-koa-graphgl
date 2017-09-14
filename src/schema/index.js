@@ -28,8 +28,13 @@ const typeDefs = `
     user: User
   }
 
+  input LinkFilter {
+    description_contains: String
+    url_contains: String
+  }
+
   type Query {
-    allLinks: [Link!]!
+    allLinks(filter: LinkFilter): [Link!]!
   }
 
   type Mutation {

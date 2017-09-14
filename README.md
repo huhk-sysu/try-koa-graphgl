@@ -813,3 +813,65 @@ server.listen(PORT, () => {
 返回第一个tab：
 
 ![](imgs/2017-09-14-01-07-51.png)
+
+## 10. 过滤
+
+- 打算增加搜链接时的过滤功能。先修改`src/schema/index.js`里的定义。
+
+```
+input LinkFilter {
+  description_contains: String
+  url_contains: String
+}
+
+type Query {
+  allLinks(filter: LinkFilter): [Link!]!
+}
+```
+
+- 然后修改`src/schema/resolovers.js`。
+
+```javascript
+Query: {
+  allLinks: async (root, { filter }, { mongo: { Links } }) => {
+    let query = {};
+    if (filter) {
+      let { url_contains, description_contains } = filter;
+      if (url_contains) {
+        query.url = { $regex: new RegExp(`${url_contains}`), $options: 'i' };
+      }
+      if (description_contains) {
+        query.description = {
+          $regex: new RegExp(`${description_contains}`),
+          $options: 'i',
+        };
+      }
+    }
+    return await Links.find(query);
+  },
+}
+```
+
+要考虑一下`filter`不存在或者`url_contains`和`description_contains`不存在的情况。这里使用正则表达式匹配的方式进行搜索。
+
+- 测试服务器
+
+不带参数：
+
+![](imgs/2017-09-14-15-57-52.png)
+
+搜不到结果：
+
+![](imgs/2017-09-14-15-58-32.png)
+
+url匹配：
+
+![](imgs/2017-09-14-15-58-45.png)
+
+description匹配：
+
+![](imgs/2017-09-14-16-00-03.png)
+
+共同匹配：
+
+![](imgs/2017-09-14-16-00-35.png)

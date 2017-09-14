@@ -49,8 +49,21 @@ module.exports = {
     },
   },
   Query: {
-    allLinks: async (root, data, { mongo: { Links } }) => {
-      return await Links.find();
+    allLinks: async (root, { filter }, { mongo: { Links } }) => {
+      let query = {};
+      if (filter) {
+        let { url_contains, description_contains } = filter;
+        if (url_contains) {
+          query.url = { $regex: new RegExp(`${url_contains}`), $options: 'i' };
+        }
+        if (description_contains) {
+          query.description = {
+            $regex: new RegExp(`${description_contains}`),
+            $options: 'i',
+          };
+        }
+      }
+      return await Links.find(query);
     },
   },
   Mutation: {
